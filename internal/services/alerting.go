@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"stackguard-task/internal/config"
+	"stackguard-task/internal/constants"
 	"stackguard-task/internal/models"
 )
 
@@ -18,9 +19,9 @@ func NewAlertService(cfg *config.Config) *AlertService {
     }
 }
 
-func (as *AlertService) SendAlert(detection models.SecretDetection, message models.TeamsMessage) error {
-    // Create alert message
-    alertMessage := as.formatAlertMessage(detection, message)
+func (as *AlertService) SendAlert(detection models.SecretDetection) error {
+    // Create alert message using the centralized template
+    alertMessage := as.formatAlertMessage(detection)
     
     // In mock mode, just log the alert
     if as.config.MockMode {
@@ -34,37 +35,10 @@ func (as *AlertService) SendAlert(detection models.SecretDetection, message mode
     return nil
 }
 
-func (as *AlertService) formatAlertMessage(detection models.SecretDetection, message models.TeamsMessage) string {
-    severityEmoji := map[string]string{
-        "CRITICAL": "🚨",
-        "HIGH":     "⚠️",
-        "MEDIUM":   "⚡",
-        "LOW":      "ℹ️",
-    }
+func (as *AlertService) formatAlertMessage(detection models.SecretDetection) string {
+    emoji := constants.GetSeverityEmoji(detection.Severity)
     
-    emoji := severityEmoji[detection.Severity]
-    if emoji == "" {
-        emoji = "🔍"
-    }
-    
-    return fmt.Sprintf(`%s **SECURITY ALERT** %s
-
-**Secret Type:** %s
-**Severity:** %s
-**Confidence:** %.0f%%
-**Channel:** %s
-**User:** %s
-**Detected:** %s
-
-**Masked Value:** %s
-
-**Context:**
-%s
-
-**Action Required:** Please review and revoke this credential immediately if it's legitimate.
-
----
-*Detection ID: %s*`,
+    return fmt.Sprintf(constants.AlertMessageTemplate,
         emoji, emoji,
         detection.SecretType,
         detection.Severity,
@@ -76,4 +50,14 @@ func (as *AlertService) formatAlertMessage(detection models.SecretDetection, mes
         detection.Context,
         detection.ID,
     )
+}
+
+// GetAlertType determines the alert type based on detection severity and confidence
+func (as *AlertService) GetAlertType(detection models.SecretDetection) string {
+    if detection.Severity == "CRITICAL" || (detection.Severity == "HIGH" && detection.Confidence > 0.9) {
+        return constants.AlertTypeCriticalRisk
+    } else if detection.Severity == "HIGH" || detection.Confidence > 0.8 {
+        return constants.AlertTypeHighRisk
+    }
+    return constants.AlertTypeSecretDetected
 }

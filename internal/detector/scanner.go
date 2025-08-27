@@ -38,12 +38,25 @@ func (s *SecretScanner) ScanMessage(msg models.TeamsMessage) []models.SecretDete
         content = content[:5000]
     }
     
+    // Initialize confidence calculator
+    confidenceCalc := NewConfidenceCalculator()
+    
     for _, pattern := range s.patterns {
         matches := pattern.Pattern.FindAllString(content, -1)
         
         for _, match := range matches {
             // Skip false positives
             if s.isFalsePositive(match, originalContent) {
+                continue
+            }
+            
+            context := extractContext(originalContent, match)
+            
+            // Calculate dynamic confidence score
+            confidence := confidenceCalc.CalculateConfidence(match, context, pattern.Name)
+            
+            // Apply minimum threshold
+            if confidence < 0.3 {
                 continue
             }
             
@@ -56,9 +69,9 @@ func (s *SecretScanner) ScanMessage(msg models.TeamsMessage) []models.SecretDete
                 UserName:    msg.From.User.DisplayName,
                 SecretType:  pattern.Name,
                 MaskedValue: maskSecret(match),
-                FullValue:   match, // Store for internal use only
-                Confidence:  pattern.Confidence,
-                Context:     extractContext(originalContent, match),
+                FullValue:   match,
+                Confidence:  confidence,
+                Context:     context,
                 DetectedAt:  time.Now(),
                 Severity:    pattern.Severity,
                 Status:      "new",

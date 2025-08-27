@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
+	"stackguard-task/internal/constants"
 	"stackguard-task/internal/models"
 	"stackguard-task/internal/services"
 )
@@ -103,7 +104,7 @@ func (h *Handler) UpdateDetectionStatus(c *fiber.Ctx) error {
     if id == "" {
         return c.Status(400).JSON(models.APIResponse{
             Success: false,
-            Error:   "Detection ID is required",
+            Error:   constants.ErrDetectionIDRequired,
         })
     }
     
@@ -114,21 +115,15 @@ func (h *Handler) UpdateDetectionStatus(c *fiber.Ctx) error {
     if err := c.BodyParser(&request); err != nil {
         return c.Status(400).JSON(models.APIResponse{
             Success: false,
-            Error:   "Invalid request body",
+            Error:   constants.ErrInvalidRequestBody,
         })
     }
     
-    // Validate status
-    validStatuses := map[string]bool{
-        "new":          true,
-        "acknowledged": true,
-        "resolved":     true,
-    }
-    
-    if !validStatuses[request.Status] {
+    // Validate status using constants
+    if !constants.IsValidStatus(request.Status) {
         return c.Status(400).JSON(models.APIResponse{
             Success: false,
-            Error:   "Invalid status. Must be: new, acknowledged, or resolved",
+            Error:   constants.ErrInvalidStatus,
         })
     }
     
@@ -141,7 +136,7 @@ func (h *Handler) UpdateDetectionStatus(c *fiber.Ctx) error {
     
     return c.JSON(models.APIResponse{
         Success: true,
-        Message: "Detection status updated successfully",
+        Message: constants.MsgDetectionUpdated,
     })
 }
 
@@ -178,7 +173,7 @@ func (h *Handler) TeamsWebhook(c *fiber.Ctx) error {
     
     // Send alerts for each detection
     for _, detection := range detections {
-        if err := h.alertService.SendAlert(detection, payload.Message); err != nil {
+        if err := h.alertService.SendAlert(detection); err != nil {
             // Log error but don't fail the request
             c.Locals("alertError", err.Error())
         }

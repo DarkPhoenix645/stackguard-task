@@ -13,6 +13,7 @@ import (
 
 	"stackguard-task/internal/api"
 	"stackguard-task/internal/config"
+	"stackguard-task/internal/constants"
 	"stackguard-task/internal/services"
 	"stackguard-task/internal/storage"
 )
@@ -85,26 +86,26 @@ func main() {
 
 func setupRoutes(app *fiber.App, handler *api.Handler) {
     // API routes
-    api := app.Group("/api")
+    apiGroup := app.Group(constants.APIBasePath)
     
     // Health and monitoring
-    api.Get("/health", handler.HealthCheck)
-    api.Get("/stats", handler.GetStats)
+    apiGroup.Get(constants.HealthRoute, handler.HealthCheck)
+    apiGroup.Get(constants.StatsRoute, handler.GetStats)
     
     // Detections
-    api.Get("/detections", handler.GetDetections)
-    api.Get("/detections/channel/:channelId", handler.GetDetectionsByChannel)
-    api.Put("/detections/:id/status", handler.UpdateDetectionStatus)
+    apiGroup.Get(constants.DetectionsRoute, handler.GetDetections)
+    apiGroup.Get(constants.DetectionsByChannelRoute, handler.GetDetectionsByChannel)
+    apiGroup.Put(constants.DetectionStatusRoute, handler.UpdateDetectionStatus)
     
     // Webhook endpoints
-    api.Post("/webhook/teams", handler.TeamsWebhook)
-    api.Post("/test/detect", handler.TestSecretDetection)
+    apiGroup.Post(constants.TeamsWebhookRoute, handler.TeamsWebhook)
+    apiGroup.Post(constants.TestDetectionRoute, handler.TestSecretDetection)
     
     // Static files and dashboard
-    app.Static("/", "./web/static")
+    app.Static(constants.WebBasePath, constants.StaticFilesPath)
     
     // Catch-all for SPA routing
-    app.Get("/*", func(c *fiber.Ctx) error {
-        return c.SendFile("./web/static/index.html")
+    app.Get(constants.SPACatchAllRoute, func(c *fiber.Ctx) error {
+        return c.SendFile(constants.SPAIndexFile)
     })
 }
