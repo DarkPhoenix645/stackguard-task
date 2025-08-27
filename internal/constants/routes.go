@@ -15,7 +15,9 @@ const (
     // Detection routes
     DetectionsRoute           = "/detections"
     DetectionsByChannelRoute  = "/detections/channel/:channelId"
+    DetectionsByStatusRoute   = "/detections/status/:status"
     DetectionStatusRoute      = "/detections/:id/status"
+    ClearDetectionsRoute      = "/detections/clear"
     
     // Webhook routes
     TeamsWebhookRoute         = "/webhook/teams"

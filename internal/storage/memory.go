@@ -16,6 +16,8 @@ type Store interface {
     GetStats() (models.DashboardStats, error)
     UpdateDetectionStatus(id, status string) error
     GetDetectionByID(id string) (*models.SecretDetection, error)
+    ClearAllDetections() error
+    GetDetectionsByStatus(status string) ([]models.SecretDetection, error)
 }
 
 type MemoryStore struct {
@@ -143,4 +145,33 @@ func (ms *MemoryStore) GetDetectionByID(id string) (*models.SecretDetection, err
     }
     
     return nil, fmt.Errorf("detection not found: %s", id)
+}
+
+// ClearAllDetections removes all detections from memory store
+func (ms *MemoryStore) ClearAllDetections() error {
+    ms.mutex.Lock()
+    defer ms.mutex.Unlock()
+    
+    ms.detections = make(map[string]models.SecretDetection)
+    return nil
+}
+
+// GetDetectionsByStatus returns detections filtered by status
+func (ms *MemoryStore) GetDetectionsByStatus(status string) ([]models.SecretDetection, error) {
+    ms.mutex.RLock()
+    defer ms.mutex.RUnlock()
+    
+    var detections []models.SecretDetection
+    for _, detection := range ms.detections {
+        if detection.Status == status {
+            detections = append(detections, detection)
+        }
+    }
+    
+    // Sort by detection time (newest first)
+    sort.Slice(detections, func(i, j int) bool {
+        return detections[i].DetectedAt.After(detections[j].DetectedAt)
+    })
+    
+    return detections, nil
 }

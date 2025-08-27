@@ -13,7 +13,8 @@
 
     <div class="container">
       <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
-
+      <button class="refresh-btn" onclick="clearAllDetections()">🗑️ Clear All</button>
+      
       <div class="stats-grid" id="statsGrid">
         <div class="stat-card">
           <div class="stat-number" id="totalDetections">-</div>
@@ -34,9 +35,16 @@
       </div>
 
       <div class="detections-table">
-        <div class="table-header">Recent Security Detections</div>
+        <div class="table-header">Active Security Detections</div>
         <div id="detectionsContainer">
           <div class="loading">Loading detections...</div>
+        </div>
+      </div>
+
+      <div class="detections-table acknowledged-section">
+        <div class="table-header">Acknowledged Detections</div>
+        <div id="acknowledgedContainer">
+          <div class="no-data">No acknowledged detections</div>
         </div>
       </div>
     </div>
@@ -44,16 +52,19 @@
     <script>
       async function loadData() {
         try {
-          const [statsResponse, detectionsResponse] = await Promise.all([
+          const [statsResponse, activeDetectionsResponse, acknowledgedDetectionsResponse] = await Promise.all([
             fetch("/api/stats"),
-            fetch("/api/detections?limit=20"),
+            fetch("/api/detections/status/new?limit=20"),
+            fetch("/api/detections/status/acknowledged?limit=20"),
           ]);
 
           const stats = await statsResponse.json();
-          const detections = await detectionsResponse.json();
+          const activeDetections = await activeDetectionsResponse.json();
+          const acknowledgedDetections = await acknowledgedDetectionsResponse.json();
 
           updateStats(stats.data);
-          updateDetections(detections.data);
+          updateDetections(activeDetections.data || []);
+          updateAcknowledgedDetections(acknowledgedDetections.data || []);
         } catch (error) {
           console.error("Error loading data:", error);
           document.getElementById("detectionsContainer").innerHTML =
@@ -78,7 +89,7 @@
 
         if (!detections || detections.length === 0) {
           container.innerHTML =
-            '<div class="no-data">No detections found. System is monitoring...</div>';
+            '<div class="no-data">No active detections found. System is monitoring...</div>';
           return;
         }
 
@@ -101,16 +112,103 @@
                         </div>
                         <div class="masked-value">${detection.maskedValue}</div>
                     </div>
-                    <div style="font-size: 0.8rem; color: #666;">
+                    <div class="detection-confidence">
                         ${Math.round(detection.confidence * 100)}% confidence
                     </div>
-                    <div style="font-size: 0.8rem; color: #666;">
-                        Status: ${detection.status}
+                    <div class="detection-actions">
+                        <button class="acknowledge-btn" onclick="acknowledgeDetection('${detection.id}')">
+                            ✓ Acknowledge
+                        </button>
                     </div>
                 </div>
             `
           )
           .join("");
+      }
+
+      function updateAcknowledgedDetections(detections) {
+        const container = document.getElementById("acknowledgedContainer");
+
+        if (!detections || detections.length === 0) {
+          container.innerHTML =
+            '<div class="no-data">No acknowledged detections</div>';
+          return;
+        }
+
+        container.innerHTML = detections
+          .map(
+            (detection) => `
+                <div class="detection-item acknowledged">
+                    <div class="severity-badge severity-${detection.severity.toLowerCase()}">
+                        ${detection.severity}
+                    </div>
+                    <div class="detection-details">
+                        <div class="detection-type">${
+                          detection.secretType
+                        }</div>
+                        <div class="detection-meta">
+                            Channel: ${detection.channelId} | User: ${
+              detection.userName
+            } | 
+                            ${new Date(detection.detectedAt).toLocaleString()}
+                        </div>
+                        <div class="masked-value">${detection.maskedValue}</div>
+                    </div>
+                    <div class="detection-confidence">
+                        ${Math.round(detection.confidence * 100)}% confidence
+                    </div>
+                    <div class="acknowledged-badge">
+                        ✓ Acknowledged
+                    </div>
+                </div>
+            `
+          )
+          .join("");
+      }
+
+      async function acknowledgeDetection(detectionId) {
+        try {
+          const response = await fetch(`/api/detections/${detectionId}/status`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ status: 'acknowledged' })
+          });
+
+          if (response.ok) {
+            loadData(); // Refresh the data
+          } else {
+            console.error('Failed to acknowledge detection');
+            alert('Failed to acknowledge detection. Please try again.');
+          }
+        } catch (error) {
+          console.error('Error acknowledging detection:', error);
+          alert('Error acknowledging detection. Please try again.');
+        }
+      }
+
+      async function clearAllDetections() {
+        if (!confirm('Are you sure you want to clear all detections? This action cannot be undone.')) {
+          return;
+        }
+
+        try {
+          const response = await fetch('/api/detections/clear', {
+            method: 'DELETE'
+          });
+
+          if (response.ok) {
+            loadData(); // Refresh the data
+            alert('All detections cleared successfully.');
+          } else {
+            console.error('Failed to clear detections');
+            alert('Failed to clear detections. Please try again.');
+          }
+        } catch (error) {
+          console.error('Error clearing detections:', error);
+          alert('Error clearing detections. Please try again.');
+        }
       }
 
       // Load data on page load

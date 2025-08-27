@@ -151,3 +151,73 @@ body {
   border-radius: 4px;
   font-size: 0.8rem;
 }
+
+/* Table controls */
+.table-controls {
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.clear-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.clear-btn:hover {
+  background: #c82333;
+}
+
+/* Detection actions */
+.detection-actions {
+  margin-top: 0.5rem;
+}
+
+.acknowledge-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background-color 0.2s;
+}
+
+.acknowledge-btn:hover {
+  background: #218838;
+}
+
+/* Detection confidence styling */
+.detection-confidence {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+/* Acknowledged section */
+.acknowledged-section {
+  margin-top: 2rem;
+  opacity: 0.8;
+}
+
+.detection-item.acknowledged {
+  background: #f8f9fa;
+  border-left: 4px solid #28a745;
+}
+
+.acknowledged-badge {
+  background: #28a745;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  display: inline-block;
+  margin-top: 0.5rem;
+}

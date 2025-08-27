@@ -196,6 +196,45 @@ func (h *Handler) TeamsWebhook(c *fiber.Ctx) error {
     })
 }
 
+// Clear all detections from memory store
+func (h *Handler) ClearDetections(c *fiber.Ctx) error {
+    if err := h.teamsService.ClearAllDetections(); err != nil {
+        return c.Status(500).JSON(models.APIResponse{
+            Success: false,
+            Error:   err.Error(),
+        })
+    }
+    
+    return c.JSON(models.APIResponse{
+        Success: true,
+        Message: "All detections cleared successfully",
+    })
+}
+
+// Get detections by status (new, acknowledged, etc.)
+func (h *Handler) GetDetectionsByStatus(c *fiber.Ctx) error {
+    status := c.Params("status")
+    if status == "" {
+        return c.Status(400).JSON(models.APIResponse{
+            Success: false,
+            Error:   "Status parameter is required",
+        })
+    }
+    
+    detections, err := h.teamsService.GetDetectionsByStatus(status)
+    if err != nil {
+        return c.Status(500).JSON(models.APIResponse{
+            Success: false,
+            Error:   err.Error(),
+        })
+    }
+    
+    return c.JSON(models.APIResponse{
+        Success: true,
+        Data:    detections,
+    })
+}
+
 // Test endpoint for manual secret detection
 func (h *Handler) TestSecretDetection(c *fiber.Ctx) error {
     var request struct {

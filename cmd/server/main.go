@@ -95,7 +95,9 @@ func setupRoutes(app *fiber.App, handler *api.Handler) {
     // Detections
     apiGroup.Get(constants.DetectionsRoute, handler.GetDetections)
     apiGroup.Get(constants.DetectionsByChannelRoute, handler.GetDetectionsByChannel)
+    apiGroup.Get(constants.DetectionsByStatusRoute, handler.GetDetectionsByStatus)
     apiGroup.Put(constants.DetectionStatusRoute, handler.UpdateDetectionStatus)
+    apiGroup.Delete(constants.ClearDetectionsRoute, handler.ClearDetections)
     
     // Webhook endpoints
     apiGroup.Post(constants.TeamsWebhookRoute, handler.TeamsWebhook)

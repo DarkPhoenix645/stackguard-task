@@ -327,10 +327,20 @@ func (cc *ConfidenceCalculator) isRepetitive(s string) bool {
     
     // Check for patterns like "abcabc" or "123123"
     for patternLen := 2; patternLen <= len(s)/2; patternLen++ {
+        if patternLen > len(s) {
+            break
+        }
         pattern := s[:patternLen]
         repeated := strings.Repeat(pattern, len(s)/patternLen)
-        if len(repeated) >= len(s)-patternLen && strings.HasPrefix(s, repeated[:len(s)]) {
-            return true
+        if len(repeated) >= len(s) - patternLen {
+            // Ensure we don't slice beyond string bounds
+            compareLen := len(s)
+            if len(repeated) < compareLen {
+                compareLen = len(repeated)
+            }
+            if strings.HasPrefix(s, repeated[:compareLen]) {
+                return true
+            }
         }
     }
     

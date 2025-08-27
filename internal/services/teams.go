@@ -56,3 +56,11 @@ func (ts *TeamsService) GetStats() (models.DashboardStats, error) {
 func (ts *TeamsService) UpdateDetectionStatus(id, status string) error {
     return ts.store.UpdateDetectionStatus(id, status)
 }
+
+func (ts *TeamsService) ClearAllDetections() error {
+    return ts.store.ClearAllDetections()
+}
+
+func (ts *TeamsService) GetDetectionsByStatus(status string) ([]models.SecretDetection, error) {
+    return ts.store.GetDetectionsByStatus(status)
+}
