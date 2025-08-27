@@ -24,7 +24,6 @@ func NewHandler(teamsService *services.TeamsService, alertService *services.Aler
     }
 }
 
-// Health check endpoint
 func (h *Handler) HealthCheck(c *fiber.Ctx) error {
     return c.JSON(models.APIResponse{
         Success: true,
@@ -36,7 +35,6 @@ func (h *Handler) HealthCheck(c *fiber.Ctx) error {
     })
 }
 
-// Get dashboard statistics
 func (h *Handler) GetStats(c *fiber.Ctx) error {
     stats, err := h.teamsService.GetStats()
     if err != nil {
@@ -52,7 +50,6 @@ func (h *Handler) GetStats(c *fiber.Ctx) error {
     })
 }
 
-// Get detections with optional limit
 func (h *Handler) GetDetections(c *fiber.Ctx) error {
     limitStr := c.Query("limit", "50")
     limit, err := strconv.Atoi(limitStr)
@@ -74,7 +71,6 @@ func (h *Handler) GetDetections(c *fiber.Ctx) error {
     })
 }
 
-// Get detections by channel
 func (h *Handler) GetDetectionsByChannel(c *fiber.Ctx) error {
     channelID := c.Params("channelId")
     if channelID == "" {
@@ -98,7 +94,6 @@ func (h *Handler) GetDetectionsByChannel(c *fiber.Ctx) error {
     })
 }
 
-// Update detection status
 func (h *Handler) UpdateDetectionStatus(c *fiber.Ctx) error {
     id := c.Params("id")
     if id == "" {
@@ -140,7 +135,6 @@ func (h *Handler) UpdateDetectionStatus(c *fiber.Ctx) error {
     })
 }
 
-// Mock Teams webhook endpoint - this is what Postman will call
 func (h *Handler) TeamsWebhook(c *fiber.Ctx) error {
     var payload models.WebhookPayload
     
@@ -151,7 +145,6 @@ func (h *Handler) TeamsWebhook(c *fiber.Ctx) error {
         })
     }
     
-    // Set default values if not provided
     if payload.Message.ID == "" {
         payload.Message.ID = uuid.New().String()
     }
@@ -162,7 +155,6 @@ func (h *Handler) TeamsWebhook(c *fiber.Ctx) error {
         payload.Timestamp = time.Now()
     }
     
-    // Process the message
     detections, err := h.teamsService.ProcessMessage(payload.Message)
     if err != nil {
         return c.Status(500).JSON(models.APIResponse{
@@ -171,10 +163,9 @@ func (h *Handler) TeamsWebhook(c *fiber.Ctx) error {
         })
     }
     
-    // Send alerts for each detection
     for _, detection := range detections {
         if err := h.alertService.SendAlert(detection); err != nil {
-            // Log error but don't fail the request
+            // Log error but don't fail the entire request
             c.Locals("alertError", err.Error())
         }
     }
@@ -196,7 +187,6 @@ func (h *Handler) TeamsWebhook(c *fiber.Ctx) error {
     })
 }
 
-// Clear all detections from memory store
 func (h *Handler) ClearDetections(c *fiber.Ctx) error {
     if err := h.teamsService.ClearAllDetections(); err != nil {
         return c.Status(500).JSON(models.APIResponse{
@@ -211,7 +201,6 @@ func (h *Handler) ClearDetections(c *fiber.Ctx) error {
     })
 }
 
-// Get detections by status (new, acknowledged, etc.)
 func (h *Handler) GetDetectionsByStatus(c *fiber.Ctx) error {
     status := c.Params("status")
     if status == "" {
@@ -235,7 +224,6 @@ func (h *Handler) GetDetectionsByStatus(c *fiber.Ctx) error {
     })
 }
 
-// Test endpoint for manual secret detection
 func (h *Handler) TestSecretDetection(c *fiber.Ctx) error {
     var request struct {
         Text      string `json:"text"`
@@ -257,7 +245,6 @@ func (h *Handler) TestSecretDetection(c *fiber.Ctx) error {
         })
     }
     
-    // Create a mock message
     mockMessage := models.TeamsMessage{
         ID:        uuid.New().String(),
         CreatedAt: time.Now(),
@@ -280,7 +267,6 @@ func (h *Handler) TestSecretDetection(c *fiber.Ctx) error {
         },
     }
     
-    // Process the message
     detections, err := h.teamsService.ProcessMessage(mockMessage)
     if err != nil {
         return c.Status(500).JSON(models.APIResponse{

@@ -50,6 +50,10 @@ body {
   font-size: 0.9rem;
 }
 
+.container {
+  margin-bottom: 2rem;
+}
+
 .detections-table {
   background: white;
   border-radius: 10px;
@@ -150,6 +154,25 @@ body {
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   font-size: 0.8rem;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  white-space: pre-wrap;
+  max-height: 4em;
+  overflow: hidden;
+  position: relative;
+  line-height: 1.2;
+}
+
+.masked-value.truncated::after {
+  content: "...";
+  position: absolute;
+  bottom: 0;
+  right: 0.5rem;
+  background: #f8f9fa;
+  padding-left: 0.5rem;
+  color: #666;
+  font-weight: bold;
 }
 
 /* Table controls */

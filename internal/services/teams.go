@@ -24,18 +24,20 @@ func NewTeamsService(cfg *config.Config, store storage.Store) *TeamsService {
 }
 
 func (ts *TeamsService) ProcessMessage(message models.TeamsMessage) ([]models.SecretDetection, error) {
-    // Scan message for secrets
+    // Scan message for secrets (returns deduplicated, sorted by confidence)
     detections := ts.scanner.ScanMessage(message)
     
-    // Save detections to storage
-    for _, detection := range detections {
-        if err := ts.store.SaveDetection(detection); err != nil {
+    // Save only the highest confidence detection to storage to avoid duplicates
+    // but return all detections for API responses
+    if len(detections) > 0 {
+        highestConfidenceDetection := detections[0] // Already sorted by confidence
+        if err := ts.store.SaveDetection(highestConfidenceDetection); err != nil {
             log.Printf("Error saving detection: %v", err)
-            continue
+        } else {
+            log.Printf("Secret detected: %s in channel %s by user %s (confidence: %.2f)", 
+                highestConfidenceDetection.SecretType, highestConfidenceDetection.ChannelID, 
+                highestConfidenceDetection.UserName, highestConfidenceDetection.Confidence)
         }
-        
-        log.Printf("Secret detected: %s in channel %s by user %s", 
-            detection.SecretType, detection.ChannelID, detection.UserName)
     }
     
     return detections, nil

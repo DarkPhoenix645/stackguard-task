@@ -5,7 +5,6 @@ import (
 	"strings"
 )
 
-// ConfidenceCalculator calculates confidence scores for secret detections
 type ConfidenceCalculator struct {
     entropyThreshold float64
 }
@@ -16,7 +15,7 @@ func NewConfidenceCalculator() *ConfidenceCalculator {
     }
 }
 
-// CalculateConfidence computes a confidence score (0.0 to 1.0) for a detected secret
+// Computes secret score 0.0 - 1.0
 func (cc *ConfidenceCalculator) CalculateConfidence(secret, context, secretType string) float64 {
     var factors []float64
     
@@ -56,13 +55,9 @@ func (cc *ConfidenceCalculator) CalculateConfidence(secret, context, secretType 
     // Apply penalties for common false positive indicators
     confidence = cc.applyFalsePositivePenalties(secret, context, confidence)
     
-    // Ensure confidence is within bounds
-    if confidence < 0.0 {
-        confidence = 0.0
-    }
-    if confidence > 1.0 {
-        confidence = 1.0
-    }
+    // Ensure bounds
+    confidence = math.Min(confidence, 1.0)
+    confidence = math.Max(confidence, 0.0)
     
     return confidence
 }
@@ -70,25 +65,27 @@ func (cc *ConfidenceCalculator) CalculateConfidence(secret, context, secretType 
 // calculatePatternSpecificity evaluates how specific the pattern match is
 func (cc *ConfidenceCalculator) calculatePatternSpecificity(secret, secretType string) float64 {
     specificityScores := map[string]float64{
-        "AWS Access Key":     0.95, // Very specific format
-        "GitHub Token":       0.98, // Highly specific prefix
         "Private Key":        0.99, // Very distinctive format
-        "Google API Key":     0.90, // Specific prefix pattern
+        "GitHub Token":       0.98, // Highly specific prefix
+        "AWS Access Key":     0.95, // Very specific format
         "Slack Token":        0.92, // Specific prefix patterns
+        "Google API Key":     0.90, // Specific prefix pattern
         "Database URL":       0.85, // Protocol-specific
         "JWT Token":          0.75, // Common format, but can vary
-        "API Key Generic":    0.50, // Generic pattern, less specific
         "AWS Secret Key":     0.60, // Base64-like, less specific
+        "API Key Generic":    0.50, // Generic pattern, less specific
     }
     
     if score, exists := specificityScores[secretType]; exists {
         return score
     }
     
-    return 0.5 // Default moderate specificity
+    // Default moderate specificity
+    return 0.5
 }
 
-// calculateEntropyScore measures the randomness of the secret
+// Measures the randomness of the secret, actual secrets tend to be more random
+// Uses Shannon entropy to measure randomness
 func (cc *ConfidenceCalculator) calculateEntropyScore(secret string) float64 {
     entropy := cc.calculateShannonEntropy(secret)
     
@@ -98,11 +95,9 @@ func (cc *ConfidenceCalculator) calculateEntropyScore(secret string) float64 {
         normalizedEntropy = 1.0
     }
     
-    // High entropy indicates more likely to be a real secret
     return normalizedEntropy
 }
 
-// calculateShannonEntropy computes Shannon entropy of a string
 func (cc *ConfidenceCalculator) calculateShannonEntropy(s string) float64 {
     if len(s) == 0 {
         return 0
@@ -128,7 +123,7 @@ func (cc *ConfidenceCalculator) calculateShannonEntropy(s string) float64 {
     return entropy
 }
 
-// calculateContextScore analyzes the surrounding context
+// Analyzes the surrounding context for indicators of secret / false positives
 func (cc *ConfidenceCalculator) calculateContextScore(context, secretType string) float64 {
     if context == "" {
         return 0.5 // Neutral if no context
@@ -176,7 +171,6 @@ func (cc *ConfidenceCalculator) calculateContextScore(context, secretType string
     return contextScore
 }
 
-// calculateLengthScore evaluates if the secret length is appropriate for its type
 func (cc *ConfidenceCalculator) calculateLengthScore(secret, secretType string) float64 {
     length := len(secret)
     
@@ -212,11 +206,10 @@ func (cc *ConfidenceCalculator) calculateLengthScore(secret, secretType string) 
     return 0.7 // Default for unknown types
 }
 
-// calculateCompositionScore analyzes character composition
+// Analyzes character composition
 func (cc *ConfidenceCalculator) calculateCompositionScore(secret, secretType string) float64 {
     var score float64 = 0.5 // Base score
     
-    // Count different character types
     var hasUpper, hasLower, hasDigit, hasSpecial bool
     var upperCount, lowerCount, digitCount, specialCount int
     
@@ -285,7 +278,7 @@ func (cc *ConfidenceCalculator) calculateCompositionScore(secret, secretType str
     return score
 }
 
-// applyFalsePositivePenalties reduces confidence for common false positives
+// Applies penalties for common false positive patterns
 func (cc *ConfidenceCalculator) applyFalsePositivePenalties(secret, context string, confidence float64) float64 {
     lowerSecret := strings.ToLower(secret)
     lowerContext := strings.ToLower(context)
@@ -319,7 +312,6 @@ func (cc *ConfidenceCalculator) applyFalsePositivePenalties(secret, context stri
     return confidence
 }
 
-// isRepetitive checks if the string has repetitive patterns
 func (cc *ConfidenceCalculator) isRepetitive(s string) bool {
     if len(s) < 4 {
         return false
@@ -333,7 +325,6 @@ func (cc *ConfidenceCalculator) isRepetitive(s string) bool {
         pattern := s[:patternLen]
         repeated := strings.Repeat(pattern, len(s)/patternLen)
         if len(repeated) >= len(s) - patternLen {
-            // Ensure we don't slice beyond string bounds
             compareLen := len(s)
             if len(repeated) < compareLen {
                 compareLen = len(repeated)
@@ -347,7 +338,6 @@ func (cc *ConfidenceCalculator) isRepetitive(s string) bool {
     return false
 }
 
-// isAllSameCharacter checks if all characters are the same
 func (cc *ConfidenceCalculator) isAllSameCharacter(s string) bool {
     if len(s) <= 1 {
         return false

@@ -55,8 +55,6 @@ func main() {
     
     // Initialize handlers
     handler := api.NewHandler(teamsService, alertService)
-    
-    // Routes
     setupRoutes(app, handler)
     
     // Start server

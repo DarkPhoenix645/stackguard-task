@@ -20,7 +20,6 @@ func NewAlertService(cfg *config.Config) *AlertService {
 }
 
 func (as *AlertService) SendAlert(detection models.SecretDetection) error {
-    // Create alert message using the centralized template
     alertMessage := as.formatAlertMessage(detection)
     
     // In mock mode, just log the alert

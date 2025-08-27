@@ -3,7 +3,9 @@ package detector
 import (
 	"crypto/md5"
 	"fmt"
+	"html"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -32,30 +34,29 @@ func (s *SecretScanner) ScanMessage(msg models.TeamsMessage) []models.SecretDete
     var detections []models.SecretDetection
     content := msg.Body.Content
     
-    // Handle large messages (>5000 chars)
+    // Preprocess content to handle newlines and special characters
+    content = s.preprocessContent(content)
+    
+    // TODO: Handle large messages (>5000 chars)
     originalContent := content
     if len(content) > 5000 {
         content = content[:5000]
     }
     
-    // Initialize confidence calculator
     confidenceCalc := NewConfidenceCalculator()
     
     for _, pattern := range s.patterns {
         matches := pattern.Pattern.FindAllString(content, -1)
         
         for _, match := range matches {
-            // Skip false positives
             if s.isFalsePositive(match, originalContent) {
                 continue
             }
             
             context := extractContext(originalContent, match)
-            
-            // Calculate dynamic confidence score
             confidence := confidenceCalc.CalculateConfidence(match, context, pattern.Name)
             
-            // Apply minimum threshold
+            // Apply lower bound for confidence
             if confidence < 0.3 {
                 continue
             }
@@ -81,7 +82,101 @@ func (s *SecretScanner) ScanMessage(msg models.TeamsMessage) []models.SecretDete
         }
     }
     
+    // Sort detections by confidence (highest first)
+    sort.Slice(detections, func(i, j int) bool {
+        return detections[i].Confidence > detections[j].Confidence
+    })
+    
+    // Deduplicate overlapping detections - keep only the highest confidence one
+    detections = s.deduplicateDetections(detections)
+    
     return detections
+}
+
+func (s *SecretScanner) preprocessContent(content string) string {
+    // Decode HTML entities (Teams messages might contain &lt;, &gt;, etc.)
+    content = html.UnescapeString(content)
+    
+    // Convert JSON-escaped newlines to actual newlines
+    content = strings.ReplaceAll(content, "\\n", "\n")
+    content = strings.ReplaceAll(content, "\\r", "\r")
+    content = strings.ReplaceAll(content, "\\t", "\t")
+    
+    // Normalize different types of whitespace to spaces for pattern matching
+    // This helps catch secrets that might be split with unusual whitespace
+    return regexp.MustCompile(`\s+`).ReplaceAllString(content, " ")
+}
+
+func (s *SecretScanner) deduplicateDetections(detections []models.SecretDetection) []models.SecretDetection {
+    if len(detections) <= 1 {
+        return detections
+    }
+    
+    var deduplicated []models.SecretDetection
+    used := make(map[int]bool)
+    
+    for i, detection := range detections {
+        if used[i] {
+            continue
+        }
+        
+        // Check if this detection overlaps with any higher confidence detection
+        isOverlapping := false
+        for j := 0; j < i; j++ {
+            if used[j] {
+                continue
+            }
+            
+            other := detections[j]
+            if s.detectionsOverlap(detection, other) {
+                isOverlapping = true
+                break
+            }
+        }
+        
+        if !isOverlapping {
+            deduplicated = append(deduplicated, detection)
+            used[i] = true
+            
+            // Mark any lower confidence overlapping detections as used
+            for j := i + 1; j < len(detections); j++ {
+                if s.detectionsOverlap(detection, detections[j]) {
+                    used[j] = true
+                }
+            }
+        }
+    }
+    
+    return deduplicated
+}
+
+// detectionsOverlap checks if two detections are for the same or overlapping secrets
+func (s *SecretScanner) detectionsOverlap(d1, d2 models.SecretDetection) bool {
+    // Same exact match
+    if d1.FullValue == d2.FullValue {
+        return true
+    }
+    
+    // One secret contains the other (e.g., private key contains base64 chunks)
+    if strings.Contains(d1.FullValue, d2.FullValue) || strings.Contains(d2.FullValue, d1.FullValue) {
+        return true
+    }
+    
+    // Check if they have significant overlap (>80% of the shorter string)
+    shorter, longer := d1.FullValue, d2.FullValue
+    if len(d2.FullValue) < len(d1.FullValue) {
+        shorter, longer = d2.FullValue, d1.FullValue
+    }
+    
+    // Only check overlap for reasonably long secrets
+    if len(shorter) > 10 {
+        overlapThreshold := int(float64(len(shorter)) * 0.8)
+        if strings.Contains(longer, shorter[:overlapThreshold]) {
+            return true
+        }
+    }
+    
+    return false
 }
 
 func (s *SecretScanner) isFalsePositive(match, content string) bool {
@@ -103,15 +198,6 @@ func (s *SecretScanner) isFalsePositive(match, content string) bool {
     }
     
     return false
-}
-
-func maskSecret(secret string) string {
-    if len(secret) <= 8 {
-        return strings.Repeat("*", len(secret))
-    }
-    
-    // Show first 4 and last 4 characters
-    return secret[:4] + strings.Repeat("*", len(secret)-8) + secret[len(secret)-4:]
 }
 
 func extractContext(content, match string) string {
