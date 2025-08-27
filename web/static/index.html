@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teams Security Monitor</title>
+    <link href="styles.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="header">
+      <h1>🛡️ Teams Security Monitor</h1>
+    </div>
+
+    <div class="container">
+      <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
+
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card">
+          <div class="stat-number" id="totalDetections">-</div>
+          <div class="stat-label">Total Detections</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="criticalCount">-</div>
+          <div class="stat-label">Critical Alerts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="highCount">-</div>
+          <div class="stat-label">High Priority</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="channelCount">-</div>
+          <div class="stat-label">Affected Channels</div>
+        </div>
+      </div>
+
+      <div class="detections-table">
+        <div class="table-header">Recent Security Detections</div>
+        <div id="detectionsContainer">
+          <div class="loading">Loading detections...</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      async function loadData() {
+        try {
+          const [statsResponse, detectionsResponse] = await Promise.all([
+            fetch("/api/stats"),
+            fetch("/api/detections?limit=20"),
+          ]);
+
+          const stats = await statsResponse.json();
+          const detections = await detectionsResponse.json();
+
+          updateStats(stats.data);
+          updateDetections(detections.data);
+        } catch (error) {
+          console.error("Error loading data:", error);
+          document.getElementById("detectionsContainer").innerHTML =
+            '<div class="no-data">Error loading data. Please try again.</div>';
+        }
+      }
+
+      function updateStats(stats) {
+        document.getElementById("totalDetections").textContent =
+          stats?.totalDetections || 0;
+        document.getElementById("criticalCount").textContent =
+          stats?.detectionsBySeverity?.CRITICAL || 0;
+        document.getElementById("highCount").textContent =
+          stats?.detectionsBySeverity?.HIGH || 0;
+        document.getElementById("channelCount").textContent = Object.keys(
+          stats?.channelStats || {}
+        ).length;
+      }
+
+      function updateDetections(detections) {
+        const container = document.getElementById("detectionsContainer");
+
+        if (!detections || detections.length === 0) {
+          container.innerHTML =
+            '<div class="no-data">No detections found. System is monitoring...</div>';
+          return;
+        }
+
+        container.innerHTML = detections
+          .map(
+            (detection) => `
+                <div class="detection-item">
+                    <div class="severity-badge severity-${detection.severity.toLowerCase()}">
+                        ${detection.severity}
+                    </div>
+                    <div class="detection-details">
+                        <div class="detection-type">${
+                          detection.secretType
+                        }</div>
+                        <div class="detection-meta">
+                            Channel: ${detection.channelId} | User: ${
+              detection.userName
+            } | 
+                            ${new Date(detection.detectedAt).toLocaleString()}
+                        </div>
+                        <div class="masked-value">${detection.maskedValue}</div>
+                    </div>
+                    <div style="font-size: 0.8rem; color: #666;">
+                        ${Math.round(detection.confidence * 100)}% confidence
+                    </div>
+                    <div style="font-size: 0.8rem; color: #666;">
+                        Status: ${detection.status}
+                    </div>
+                </div>
+            `
+          )
+          .join("");
+      }
+
+      // Load data on page load
+      loadData();
+
+      // Auto-refresh every 30 seconds
+      setInterval(loadData, 30000);
+    </script>
+  </body>
+</html>
