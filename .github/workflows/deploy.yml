@@ -1,0 +1,74 @@
+name: Deploy StackGuard to EC2
+
+on:
+  push:
+    branches:
+      - main # Trigger this workflow on pushes to the main branch
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  ECR_URI: ${{ secrets.ECR_URI }}
+  EC2_INSTANCE_PUBLIC_IP: ${{ secrets.EC2_INSTANCE_PUBLIC_IP }}
+  EC2_USER: ec2-user # Default user for Amazon Linux 2
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest # Use a GitHub-hosted runner for CI/CD
+
+    permissions:
+      id-token: write # Required for AWS OIDC authentication
+      contents: read # Required to checkout the repository code
+
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubActionsStackGuardDeployRole # Replace with your GitHub Actions IAM Role ARN
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR (using OIDC role)
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push Docker image to Amazon ECR
+        run: |
+          docker build -t $ECR_REPOSITORY .
+          docker tag $ECR_REPOSITORY:latest $ECR_URI:latest
+          docker push $ECR_URI:latest
+
+      - name: Deploy to EC2 Instance via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ env.EC2_INSTANCE_PUBLIC_IP }}
+          username: ${{ env.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            echo "Starting deployment on EC2 instance..."
+
+            # Authenticate Docker to ECR (using the EC2 instance's IAM role via credential helper)
+            # The credential helper automatically handles the token retrieval with the instance role
+            docker login --username AWS --password-stdin $(aws ecr get-login-password --region ${{ env.AWS_REGION }}) ${{ env.ECR_URI }}
+
+            # Pull the latest Docker image from ECR
+            docker pull ${{ env.ECR_URI }}:latest
+
+            # Stop and remove the old running container (if it exists)
+            docker stop stackguard-app || true
+            docker rm stackguard-app || true
+
+            # Run a new container from the latest image
+            docker run -d \
+              --name stackguard-app \
+              -p 8080:8080 \
+              --restart unless-stopped \
+              ${{ env.ECR_URI }}:latest
+
+            # Clean up old Docker images to save space
+            docker image prune -f
+
+            echo "Deployment completed on EC2!"
