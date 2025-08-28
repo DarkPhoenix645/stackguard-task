@@ -53,7 +53,7 @@ func (cc *ConfidenceCalculator) CalculateConfidence(secret, context, secretType 
     confidence := weightedSum / totalWeight
     
     // Apply penalties for common false positive indicators
-    confidence = cc.applyFalsePositivePenalties(secret, context, confidence)
+    confidence = cc.applyFalsePositivePenalties(secret, context, secretType, confidence)
     
     // Ensure bounds
     confidence = math.Min(confidence, 1.0)
@@ -279,7 +279,7 @@ func (cc *ConfidenceCalculator) calculateCompositionScore(secret, secretType str
 }
 
 // Applies penalties for common false positive patterns
-func (cc *ConfidenceCalculator) applyFalsePositivePenalties(secret, context string, confidence float64) float64 {
+func (cc *ConfidenceCalculator) applyFalsePositivePenalties(secret, context, secretType string, confidence float64) float64 {
     lowerSecret := strings.ToLower(secret)
     lowerContext := strings.ToLower(context)
     
@@ -292,9 +292,16 @@ func (cc *ConfidenceCalculator) applyFalsePositivePenalties(secret, context stri
         "abcdefghijklmnopqrstuvwxyz", "0123456789",
     }
     
+    isHighlySpecific := secretType == "Private Key" || secretType == "GitHub Token" || secretType == "AWS Access Key" || secretType == "Google API Key"
+
     for _, pattern := range falsePositivePatterns {
         if strings.Contains(lowerSecret, pattern) {
-            confidence *= 0.1 // Severe penalty if pattern is in the secret itself
+            // Avoid over-penalizing highly specific formats due to synthetic examples
+            if isHighlySpecific && (pattern == "abcdefghijklmnopqrstuvwxyz" || pattern == "0123456789") {
+                confidence *= 0.8
+            } else {
+                confidence *= 0.1 // Severe penalty if pattern is in the secret itself
+            }
             break
         }
         if strings.Contains(lowerContext, pattern) {
