@@ -3,7 +3,7 @@ name: Deploy StackGuard to EC2
 on:
   push:
     branches:
-      - main # Trigger this workflow on pushes to the main branch
+      - main
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -11,7 +11,7 @@ env:
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
   ECR_URI: ${{ secrets.ECR_URI }}
   EC2_INSTANCE_PUBLIC_IP: ${{ secrets.EC2_INSTANCE_PUBLIC_IP }}
-  EC2_USER: ec2-user # Default user for Amazon Linux 2
+  EC2_USER: ec2-user
 
 jobs:
   build_and_deploy:
@@ -25,21 +25,22 @@ jobs:
       - name: Checkout repository code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (using OIDC role)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubActionsStackGuardDeployRole # Replace with your GitHub Actions IAM Role ARN
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR (using OIDC role)
+      - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build, tag, and push Docker image to Amazon ECR
         run: |
-          docker build -t $ECR_REPOSITORY .
-          docker tag $ECR_REPOSITORY:latest $ECR_URI:latest
-          docker push $ECR_URI:latest
+          # Use env variables for non-sensitive ECR_REPOSITORY and ECR_URI
+          docker build -t "$ECR_REPOSITORY" .
+          docker tag "$ECR_REPOSITORY":latest "$ECR_URI":latest
+          docker push "$ECR_URI":latest
 
       - name: Deploy to EC2 Instance via SSH
         uses: appleboy/ssh-action@v1.0.0
@@ -50,12 +51,13 @@ jobs:
           script: |
             echo "Starting deployment on EC2 instance..."
 
-            # Authenticate Docker to ECR (using the EC2 instance's IAM role via credential helper)
-            # The credential helper automatically handles the token retrieval with the instance role
-            docker login --username AWS --password-stdin $(aws ecr get-login-password --region ${{ env.AWS_REGION }}) ${{ env.ECR_URI }}
+            # Authenticate Docker to ECR on the EC2 instance
+            # The EC2 instance's IAM role (with ECR pull permissions) and the credential helper
+            # are used here. We only pass non-sensitive region and URI.
+            docker login --username AWS --password-stdin "$(aws ecr get-login-password --region ${{ env.AWS_REGION }})" "${{ env.ECR_URI }}"
 
             # Pull the latest Docker image from ECR
-            docker pull ${{ env.ECR_URI }}:latest
+            docker pull "${{ env.ECR_URI }}":latest
 
             # Stop and remove the old running container (if it exists)
             docker stop stackguard-app || true
@@ -66,7 +68,7 @@ jobs:
               --name stackguard-app \
               -p 8080:8080 \
               --restart unless-stopped \
-              ${{ env.ECR_URI }}:latest
+              "${{ env.ECR_URI }}":latest
 
             # Clean up old Docker images to save space
             docker image prune -f
