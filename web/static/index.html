@@ -8,12 +8,17 @@
   </head>
   <body>
     <div class="header">
-      <h1>🛡️ Teams Security Monitor</h1>
+      <h1>Nilanjan Mitra's Intern Task</h1>
+      <div class="connection-indicator">
+        <span id="connection-status" class="status disconnected">Websocket Connecting...</span>
+      </div>
     </div>
 
     <div class="container">
-      <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
-      <button class="refresh-btn" onclick="clearAllDetections()">🗑️ Clear All</button>
+      <div class="button-group">
+        <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
+        <button class="clear-btn" onclick="clearAllDetections()">🗑️ Clear All</button>
+      </div>
       
       <div class="stats-grid" id="statsGrid">
         <div class="stat-card">
@@ -34,21 +39,17 @@
         </div>
       </div>
 
-      <div class="container">
-        <div class="detections-table">
-          <div class="table-header">Active Security Detections</div>
-          <div id="detectionsContainer">
-            <div class="loading">Loading detections...</div>
-          </div>
+      <div class="detections-table">
+        <div class="table-header">Active Security Detections</div>
+        <div id="detectionsContainer">
+          <div class="loading">Loading detections...</div>
         </div>
       </div>
 
-      <div class="container">
-        <div class="detections-table acknowledged-section">
-          <div class="table-header">Acknowledged Detections</div>
-          <div id="acknowledgedContainer">
-            <div class="no-data">No acknowledged detections</div>
-          </div>
+      <div class="detections-table acknowledged-section">
+        <div class="table-header">Acknowledged Detections</div>
+        <div id="acknowledgedContainer">
+          <div class="no-data">No acknowledged detections</div>
         </div>
       </div>
     </div>
@@ -101,29 +102,23 @@
           .map(
             (detection) => `
                 <div class="detection-item">
-                    <div class="severity-badge severity-${detection.severity.toLowerCase()}">
-                        ${detection.severity}
-                    </div>
-                    <div class="detection-details">
-                        <div class="detection-type">${
-                          detection.secretType
-                        }</div>
-                        <div class="detection-meta">
-                            Channel: ${detection.channelId} | User: ${
-              detection.userName
-            } | 
-                            ${new Date(detection.detectedAt).toLocaleString()}
+                    <div class="detection-header">
+                        <div class="detection-type">${detection.secretType}</div>
+                        <div class="detection-actions">
+                            <span class="detection-confidence">${Math.round(detection.confidence * 100)}% confidence</span>
+                            <button class="acknowledge-btn" onclick="acknowledgeDetection('${detection.id}')">
+                                ✓ Acknowledge
+                            </button>
                         </div>
-                        <div class="masked-value">${detection.maskedValue}</div>
                     </div>
-                    <div class="detection-confidence">
-                        ${Math.round(detection.confidence * 100)}% confidence
+                    <div class="detection-meta">
+                        <span class="severity-badge severity-${detection.severity.toLowerCase()}">
+                            ${detection.severity}
+                        </span>
+                        Channel: ${detection.channelId} | User: ${detection.userName} | 
+                        ${new Date(detection.detectedAt).toLocaleString()}
                     </div>
-                    <div class="detection-actions">
-                        <button class="acknowledge-btn" onclick="acknowledgeDetection('${detection.id}')">
-                            ✓ Acknowledge
-                        </button>
-                    </div>
+                    <div class="masked-value">${detection.maskedValue}</div>
                 </div>
             `
           )
@@ -143,27 +138,23 @@
           .map(
             (detection) => `
                 <div class="detection-item acknowledged">
-                    <div class="severity-badge severity-${detection.severity.toLowerCase()}">
-                        ${detection.severity}
-                    </div>
-                    <div class="detection-details">
-                        <div class="detection-type">${
-                          detection.secretType
-                        }</div>
-                        <div class="detection-meta">
-                            Channel: ${detection.channelId} | User: ${
-              detection.userName
-            } | 
-                            ${new Date(detection.detectedAt).toLocaleString()}
+                    <div class="detection-header">
+                        <div class="detection-type">${detection.secretType}</div>
+                        <div class="detection-actions">
+                            <span class="detection-confidence">${Math.round(detection.confidence * 100)}% confidence</span>
+                            <div class="acknowledged-badge">
+                                ✓ Acknowledged
+                            </div>
                         </div>
-                        <div class="masked-value">${detection.maskedValue}</div>
                     </div>
-                    <div class="detection-confidence">
-                        ${Math.round(detection.confidence * 100)}% confidence
+                    <div class="detection-meta">
+                        <span class="severity-badge severity-${detection.severity.toLowerCase()}">
+                            ${detection.severity}
+                        </span>
+                        Channel: ${detection.channelId} | User: ${detection.userName} | 
+                        ${new Date(detection.detectedAt).toLocaleString()}
                     </div>
-                    <div class="acknowledged-badge">
-                        ✓ Acknowledged
-                    </div>
+                    <div class="masked-value">${detection.maskedValue}</div>
                 </div>
             `
           )
@@ -215,11 +206,144 @@
         }
       }
 
+      // WebSocket connection for real-time updates
+      let ws;
+      
+      function connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = function() {
+          console.log('WebSocket connected');
+          document.getElementById('connection-status').textContent = 'Websocket Connected';
+          document.getElementById('connection-status').className = 'status connected';
+        };
+        
+        ws.onmessage = function(event) {
+          try {
+            const detection = JSON.parse(event.data);
+            console.log('New detection received via WebSocket:', detection);
+            
+            // Add detection to table dynamically
+            addDetectionToTable(detection);
+            
+            // Update stats counters
+            updateStatsCounters();
+          } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+          }
+        };
+        
+        ws.onclose = function() {
+          console.log('WebSocket disconnected');
+          document.getElementById('connection-status').textContent = 'Websocket Disconnected';
+          document.getElementById('connection-status').className = 'status disconnected';
+          
+          // Attempt to reconnect after 3 seconds
+          setTimeout(connectWebSocket, 3000);
+        };
+        
+        ws.onerror = function(error) {
+          console.error('WebSocket error:', error);
+        };
+      }
+
+      // Add detection to table dynamically
+      function addDetectionToTable(detection) {
+        const detectionsContainer = document.getElementById('detectionsContainer');
+        if (!detectionsContainer) return;
+
+        // Remove loading/no-data message if present
+        const loadingEl = detectionsContainer.querySelector('.loading, .no-data');
+        if (loadingEl) {
+          loadingEl.remove();
+        }
+
+        // Create detection item element
+        const detectionItem = document.createElement('div');
+        detectionItem.className = 'detection-item';
+        detectionItem.id = `detection-${detection.id}`;
+        
+        const severityClass = detection.severity.toLowerCase();
+        const confidencePercent = Math.round(detection.confidence * 100);
+        const detectedTime = new Date(detection.detectedAt).toLocaleString();
+        
+        detectionItem.innerHTML = `
+            <div class="detection-header">
+                <div class="detection-type">${detection.secretType}</div>
+                <div class="detection-actions">
+                    <span class="detection-confidence">${confidencePercent}% confidence</span>
+                    <button class="acknowledge-btn" onclick="acknowledgeDetection('${detection.id}')">
+                        ✓ Acknowledge
+                    </button>
+                </div>
+            </div>
+            <div class="detection-meta">
+                <span class="severity-badge severity-${severityClass}">
+                    ${detection.severity}
+                </span>
+                Channel: ${detection.channelId || detection.channelID} | User: ${detection.userName} | 
+                ${detectedTime}
+            </div>
+            <div class="masked-value">${detection.maskedValue}</div>
+        `;
+        
+        // Add animation class for smooth entry
+        detectionItem.style.opacity = '0';
+        detectionItem.style.transform = 'translateY(-20px)';
+        
+        // Insert at the top of the container
+        detectionsContainer.insertBefore(detectionItem, detectionsContainer.firstChild);
+        
+        // Animate in
+        setTimeout(() => {
+          detectionItem.style.transition = 'all 0.3s ease-out';
+          detectionItem.style.opacity = '1';
+          detectionItem.style.transform = 'translateY(0)';
+        }, 50);
+      }
+
+      // Update stats counters
+      function updateStatsCounters() {
+        // Get current detections from DOM
+        const detectionItems = document.querySelectorAll('.detection-item:not(.acknowledged)');
+        let totalCount = detectionItems.length;
+        let criticalCount = 0;
+        let highCount = 0;
+        
+        detectionItems.forEach(item => {
+          const severityBadge = item.querySelector('.severity-badge');
+          if (severityBadge) {
+            const severity = severityBadge.textContent.trim();
+            if (severity === 'CRITICAL') criticalCount++;
+            else if (severity === 'HIGH') highCount++;
+          }
+        });
+        
+        // Update counters
+        document.getElementById('totalDetections').textContent = totalCount;
+        document.getElementById('criticalCount').textContent = criticalCount;
+        document.getElementById('highCount').textContent = highCount;
+        
+        // Update channel count (simplified - just count unique channels from visible detections)
+        const channels = new Set();
+        detectionItems.forEach(item => {
+          const metaText = item.querySelector('.detection-meta')?.textContent || '';
+          const channelMatch = metaText.match(/Channel: ([^|]+)/);
+          if (channelMatch) {
+            channels.add(channelMatch[1].trim());
+          }
+        });
+        document.getElementById('channelCount').textContent = channels.size;
+      }
+
       // Load data on page load
       loadData();
-
-      // Auto-refresh every 30 seconds
-      setInterval(loadData, 30000);
+      
+      // Connect WebSocket
+      connectWebSocket();
     </script>
   </body>
 </html>

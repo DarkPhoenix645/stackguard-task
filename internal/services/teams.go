@@ -10,16 +10,18 @@ import (
 )
 
 type TeamsService struct {
-    config  *config.Config
-    scanner *detector.SecretScanner
-    store   storage.Store
+    config       *config.Config
+    scanner      *detector.SecretScanner
+    store        storage.Store
+    alertService *AlertService
 }
 
-func NewTeamsService(cfg *config.Config, store storage.Store) *TeamsService {
+func NewTeamsService(cfg *config.Config, store storage.Store, alertService *AlertService) *TeamsService {
     return &TeamsService{
-        config:  cfg,
-        scanner: detector.NewSecretScanner(),
-        store:   store,
+        config:       cfg,
+        scanner:      detector.NewSecretScanner(),
+        store:        store,
+        alertService: alertService,
     }
 }
 
@@ -37,6 +39,13 @@ func (ts *TeamsService) ProcessMessage(message models.TeamsMessage) ([]models.Se
             log.Printf("Secret detected: %s in channel %s by user %s (confidence: %.2f)", 
                 highestConfidenceDetection.SecretType, highestConfidenceDetection.ChannelID, 
                 highestConfidenceDetection.UserName, highestConfidenceDetection.Confidence)
+            
+            // Send alert via WebSocket
+            if ts.alertService != nil {
+                if err := ts.alertService.SendAlert(highestConfidenceDetection); err != nil {
+                    log.Printf("Error sending alert: %v", err)
+                }
+            }
         }
     }
     

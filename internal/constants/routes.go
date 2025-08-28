@@ -23,6 +23,10 @@ const (
     TeamsWebhookRoute         = "/webhook/teams"
     TestDetectionRoute        = "/test/detect"
     
+    // WebSocket routes
+    WebSocketRoute            = "/ws"
+    AlertsWebSocketRoute      = "/ws/messages"
+    
     // Static and SPA routes
     StaticFilesPath          = "./web/static"
     SPACatchAllRoute         = "/*"

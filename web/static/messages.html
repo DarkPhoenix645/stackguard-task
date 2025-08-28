@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Alert Messages</title>
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <h1>Security Alert Messages</h1>
+        <div class="connection-indicator">
+            <span id="connection-status" class="status disconnected">Websocket Connecting...</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="detections-table">
+            <div class="table-header">
+                Live Alert Messages
+            </div>
+            <div id="messagesList">
+                <div class="no-messages" id="noMessages">
+                    Waiting for security alerts...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+        
+        let ws;
+        let messageCount = 0;
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function() {
+                console.log('WebSocket connected');
+                document.getElementById('connection-status').textContent = 'Websocket Connected';
+                document.getElementById('connection-status').className = 'status connected';
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const detection = JSON.parse(event.data);
+                    console.log('Detection received:', detection);
+                    addDetection(detection);
+                } catch (error) {
+                    console.error('Error parsing WebSocket message:', error);
+                }
+            };
+            
+            ws.onclose = function() {
+                console.log('WebSocket disconnected');
+                document.getElementById('connection-status').textContent = 'Websocket Disconnected';
+                document.getElementById('connection-status').className = 'status disconnected';
+                
+                // Attempt to reconnect after 3 seconds
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+        }
+        
+        function addDetection(detection) {
+            const messagesList = document.getElementById('messagesList');
+            const noMessages = document.getElementById('noMessages');
+            
+            // Hide "no messages" text
+            if (noMessages) {
+                noMessages.style.display = 'none';
+            }
+            
+            // Create detection element
+            const detectionItem = document.createElement('div');
+            detectionItem.className = 'detection-item';
+            detectionItem.id = `detection-${detection.id}`;
+            
+            const timestamp = new Date(detection.detectedAt).toLocaleString();
+            const confidencePercent = Math.round(detection.confidence * 100);
+            
+            // Create the title for the header
+            const title = `${detection.secretType} detected in channel ${detection.channelId}`;
+            
+            // Format the detection content as markdown (without the title since it's now in header)
+            const content = `**User:** ${detection.userName}
+
+**Detected Value:** \`${detection.maskedValue}\`
+
+**Context:** ${detection.context}`;
+            
+            const formattedContent = marked.parse(content);
+            
+            detectionItem.innerHTML = `
+                <div class="message-header">
+                    <div class="message-title">${title}</div>
+                    <div class="message-chips">
+                        <span class="chip severity-${detection.severity.toLowerCase()}">${detection.severity}</span>
+                        <span class="chip confidence">${confidencePercent}% confidence</span>
+                        <span class="chip detection-id">🔍 ${detection.id}</span>
+                        <span class="chip timestamp">📅 ${timestamp}</span>
+                    </div>
+                </div>
+                <div class="message-content">${formattedContent}</div>
+            `;
+            
+            // Insert at the top
+            messagesList.insertBefore(detectionItem, messagesList.firstChild);
+            
+            // Scroll to top to show new detection
+            messagesList.scrollTop = 0;
+        }
+
+        // Connect to WebSocket when page loads
+        connectWebSocket();
+    </script>
+</body>
+</html>

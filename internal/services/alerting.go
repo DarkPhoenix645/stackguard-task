@@ -11,16 +11,29 @@ import (
 
 type AlertService struct {
     config *config.Config
+    wsHub  WebSocketHub
 }
 
-func NewAlertService(cfg *config.Config) *AlertService {
+type WebSocketHub interface {
+    BroadcastDetection(detection models.SecretDetection)
+    BroadcastAlert(alertMessage string)
+}
+
+func NewAlertService(cfg *config.Config, wsHub WebSocketHub) *AlertService {
     return &AlertService{
         config: cfg,
+        wsHub:  wsHub,
     }
 }
 
 func (as *AlertService) SendAlert(detection models.SecretDetection) error {
     alertMessage := as.formatAlertMessage(detection)
+    
+    // Broadcast to WebSocket clients
+    if as.wsHub != nil {
+        as.wsHub.BroadcastDetection(detection)
+        as.wsHub.BroadcastAlert(alertMessage)
+    }
     
     // In mock mode, just log the alert
     if as.config.MockMode {

@@ -16,6 +16,7 @@ import (
 	"stackguard-task/internal/constants"
 	"stackguard-task/internal/services"
 	"stackguard-task/internal/storage"
+	"stackguard-task/internal/websocket"
 )
 
 func main() {
@@ -24,8 +25,12 @@ func main() {
     
 	store := storage.NewMemoryStore()
 
-    teamsService := services.NewTeamsService(cfg, store)
-    alertService := services.NewAlertService(cfg)
+    // Initialize WebSocket hub
+    wsHub := websocket.NewHub()
+    go wsHub.Run()
+
+    alertService := services.NewAlertService(cfg, wsHub)
+    teamsService := services.NewTeamsService(cfg, store, alertService)
     
     app := fiber.New(fiber.Config{
         AppName: "Teams Security Connector",
@@ -55,7 +60,7 @@ func main() {
     
     // Initialize handlers
     handler := api.NewHandler(teamsService, alertService)
-    setupRoutes(app, handler)
+    setupRoutes(app, handler, wsHub)
     
     // Start server
     go func() {
@@ -82,7 +87,7 @@ func main() {
     log.Println("Server exited")
 }
 
-func setupRoutes(app *fiber.App, handler *api.Handler) {
+func setupRoutes(app *fiber.App, handler *api.Handler, wsHub *websocket.Hub) {
     // API routes
     apiGroup := app.Group(constants.APIBasePath)
     
@@ -100,6 +105,13 @@ func setupRoutes(app *fiber.App, handler *api.Handler) {
     // Webhook endpoints
     apiGroup.Post(constants.TeamsWebhookRoute, handler.TeamsWebhook)
     apiGroup.Post(constants.TestDetectionRoute, handler.TestSecretDetection)
+    
+    // WebSocket endpoints
+    app.Use(constants.WebSocketRoute, wsHub.UpgradeHandler())
+    app.Get(constants.WebSocketRoute, wsHub.HandleWebSocket())
+    
+    app.Use(constants.AlertsWebSocketRoute, wsHub.UpgradeHandler())
+    app.Get(constants.AlertsWebSocketRoute, wsHub.HandleAlertsWebSocket())
     
     // Static files and dashboard
     app.Static(constants.WebBasePath, constants.StaticFilesPath)

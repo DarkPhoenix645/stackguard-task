@@ -16,8 +16,6 @@ const (
 		%s
 
 		**Action Required:** Please review and revoke this credential immediately if it's legitimate.
-
-		---
 		*Detection ID: %s*`
 
     // Severity emojis
