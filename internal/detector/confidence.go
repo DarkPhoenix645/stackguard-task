@@ -28,7 +28,7 @@ func (cc *ConfidenceCalculator) CalculateConfidence(secret, context, secretType 
     factors = append(factors, entropyScore)
     
     // Factor 3: Context analysis (0.0 - 1.0)
-    contextScore := cc.calculateContextScore(context, secretType)
+    contextScore := cc.calculateContextScore(context)
     factors = append(factors, contextScore)
     
     // Factor 4: Length appropriateness (0.0 - 1.0)
@@ -53,7 +53,7 @@ func (cc *ConfidenceCalculator) CalculateConfidence(secret, context, secretType 
     confidence := weightedSum / totalWeight
     
     // Apply penalties for common false positive indicators
-    confidence = cc.applyFalsePositivePenalties(secret, context, secretType, confidence)
+    confidence = cc.applyFalsePositivePenalties(secret, context, confidence)
     
     // Ensure bounds
     confidence = math.Min(confidence, 1.0)
@@ -124,7 +124,7 @@ func (cc *ConfidenceCalculator) calculateShannonEntropy(s string) float64 {
 }
 
 // Analyzes the surrounding context for indicators of secret / false positives
-func (cc *ConfidenceCalculator) calculateContextScore(context, secretType string) float64 {
+func (cc *ConfidenceCalculator) calculateContextScore(context string) float64 {
     if context == "" {
         return 0.5 // Neutral if no context
     }
@@ -279,7 +279,7 @@ func (cc *ConfidenceCalculator) calculateCompositionScore(secret, secretType str
 }
 
 // Applies penalties for common false positive patterns
-func (cc *ConfidenceCalculator) applyFalsePositivePenalties(secret, context, secretType string, confidence float64) float64 {
+func (cc *ConfidenceCalculator) applyFalsePositivePenalties(secret, context string, confidence float64) float64 {
     lowerSecret := strings.ToLower(secret)
     lowerContext := strings.ToLower(context)
     
@@ -292,16 +292,9 @@ func (cc *ConfidenceCalculator) applyFalsePositivePenalties(secret, context, sec
         "abcdefghijklmnopqrstuvwxyz", "0123456789",
     }
     
-    isHighlySpecific := secretType == "Private Key" || secretType == "GitHub Token" || secretType == "AWS Access Key" || secretType == "Google API Key"
-
     for _, pattern := range falsePositivePatterns {
         if strings.Contains(lowerSecret, pattern) {
-            // Avoid over-penalizing highly specific formats due to synthetic examples
-            if isHighlySpecific && (pattern == "abcdefghijklmnopqrstuvwxyz" || pattern == "0123456789") {
-                confidence *= 0.8
-            } else {
-                confidence *= 0.1 // Severe penalty if pattern is in the secret itself
-            }
+            confidence *= 0.1 // Severe penalty if pattern is in the secret itself
             break
         }
         if strings.Contains(lowerContext, pattern) {
