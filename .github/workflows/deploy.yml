@@ -23,6 +23,8 @@ jobs:
       id-token: write
       contents: read
 
+    environment: MOCK
+
     steps:
       - name: Checkout repository code
         uses: actions/checkout@v4

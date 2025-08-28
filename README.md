@@ -138,20 +138,18 @@ Open locally after starting the server: `http://localhost:8080/`.
 
 Gist: ECR + EC2 + GitHub Actions (OIDC). On push to `main`, GitHub Actions will rebuild and push the image to ECR, then SSH into EC2 to pull and run the latest container.
 
-1. Create ECR repo and set env vars: `AWS_REGION`, `AWS_ACCOUNT_ID`, `ECR_URI`, `ECR_REPOSITORY`.
-2. Launch EC2 (Amazon Linux 2), open port 8080, install Docker; attach an IAM instance profile that can pull from ECR.
-3. In IAM, add GitHub OIDC provider and a role restricted to the repo’s `main` branch; grant ECR push permissions.
-4. Add GitHub secrets: `AWS_REGION`, `AWS_ACCOUNT_ID`, `ECR_REPOSITORY`, `ECR_URI`, `EC2_INSTANCE_PUBLIC_IP`, `EC2_SSH_PRIVATE_KEY`.
+1. Create ECR repo and set env vars: `AWS_REGION`, `AWS_ACCOUNT_ID`, `ECR_URI`, `ECR_REPOSITORY`
+2. Launch EC2 (Amazon Linux 2), open port 8080, install Docker; attach an IAM instance profile that can pull from ECR
+3. In IAM, add GitHub OIDC provider and a role restricted to the repo’s `main` branch; grant ECR push permissions
+4. Add GitHub secrets: `AWS_REGION`, `AWS_ACCOUNT_ID`, `ECR_REPOSITORY`, `ECR_URI`, `EC2_INSTANCE_PUBLIC_IP`, `EC2_SSH_PRIVATE_KEY`
 5. Add `.github/workflows/deploy.yml`:
-
-- build
-- push to ECR
-- SSH into EC2
-- `docker pull`
-- `docker run -d -p 8080:8080 --restart unless-stopped`.
-
-6. Verify: `http://<EC2_PUBLIC_IP>:8080/` and `/api/health`.
-7. Cleanup AWS resources when done.
+   - build
+   - push to ECR
+   - SSH into EC2
+   - `docker pull`
+   - `docker run -d -p 8080:8080 --restart unless-stopped`
+6. Verify: `http://<EC2_PUBLIC_IP>:8080/` and `/api/health`
+7. Cleanup AWS resources when done
 
 ## Notes
 
