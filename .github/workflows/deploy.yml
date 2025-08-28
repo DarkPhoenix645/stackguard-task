@@ -23,9 +23,6 @@ jobs:
       id-token: write
       contents: read
 
-    # IMPORTANT: Target the 'MOCK' environment
-    environment: MOCK # This makes 'MOCK' environment secrets/variables available
-
     steps:
       - name: Checkout repository code
         uses: actions/checkout@v4
