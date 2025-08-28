@@ -5,6 +5,8 @@ on:
     branches:
       - main
 
+# Define common, non-sensitive repository-level envs if any.
+# Or envs derived from repository secrets, as before.
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
@@ -15,11 +17,14 @@ env:
 
 jobs:
   build_and_deploy:
-    runs-on: ubuntu-latest # Use a GitHub-hosted runner for CI/CD
+    runs-on: ubuntu-latest
 
     permissions:
-      id-token: write # Required for AWS OIDC authentication
-      contents: read # Required to checkout the repository code
+      id-token: write
+      contents: read
+
+    # IMPORTANT: Target the 'MOCK' environment
+    environment: MOCK # This makes 'MOCK' environment secrets/variables available
 
     steps:
       - name: Checkout repository code
@@ -28,7 +33,7 @@ jobs:
       - name: Configure AWS credentials (using OIDC role)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }} # This should be a repository secret
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -37,7 +42,6 @@ jobs:
 
       - name: Build, tag, and push Docker image to Amazon ECR
         run: |
-          # Use env variables for non-sensitive ECR_REPOSITORY and ECR_URI
           docker build -t "$ECR_REPOSITORY" .
           docker tag "$ECR_REPOSITORY":latest "$ECR_URI":latest
           docker push "$ECR_URI":latest
@@ -53,8 +57,9 @@ jobs:
 
             # Authenticate Docker to ECR on the EC2 instance
             # The EC2 instance's IAM role (with ECR pull permissions) and the credential helper
-            # are used here. We only pass non-sensitive region and URI.
-            docker login --username AWS --password-stdin "$(aws ecr get-login-password --region ${{ env.AWS_REGION }})" "${{ env.ECR_URI }}"
+            # are used here.
+            # FIX: The ECR URI needs to be the last argument to docker login.
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin "${{ env.ECR_URI }}"
 
             # Pull the latest Docker image from ECR
             docker pull "${{ env.ECR_URI }}":latest
@@ -68,6 +73,14 @@ jobs:
               --name stackguard-app \
               -p 8080:8080 \
               --restart unless-stopped \
+              -e PORT="${{ vars.PORT }}" \
+              -e TEAMS_CLIENT_ID="${{ vars.TEAMS_CLIENT_ID }}" \
+              -e TEAMS_CLIENT_SECRET="${{ secrets.TEAMS_CLIENT_SECRET }}" \
+              -e TENANT_ID="${{ vars.TENANT_ID }}" \
+              -e SECURITY_CHANNEL_ID="${{ vars.SECURITY_CHANNEL_ID }}" \
+              -e MONITORING_INTERVAL="${{ vars.MONITORING_INTERVAL }}" \
+              -e MOCK_MODE="${{ vars.MOCK_MODE }}" \
+              -e LOG_LEVEL="${{ vars.LOG_LEVEL }}" \
               "${{ env.ECR_URI }}":latest
 
             # Clean up old Docker images to save space
