@@ -62,12 +62,12 @@ jobs:
             docker pull "${{ env.ECR_URI }}":latest
 
             # Stop and remove the old running container (if it exists)
-            docker stop stackguard-app || true
-            docker rm stackguard-app || true
+            docker stop stackguard-task || true
+            docker rm stackguard-task || true
 
             # Run a new container from the latest image
             docker run -d \
-              --name stackguard-app \
+              --name stackguard-task \
               -p 8080:8080 \
               --restart unless-stopped \
               -e PORT="${{ vars.PORT }}" \
