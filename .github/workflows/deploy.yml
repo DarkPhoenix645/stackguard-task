@@ -13,13 +13,6 @@ jobs:
       id-token: write
       contents: read
 
-    # ====================================================================
-    # THE FIX: Remove the 'environment: MOCK' line.
-    # All secrets and variables are now repository-level.
-    # This also resolves the OIDC trust policy mismatch you observed.
-    # ====================================================================
-    # environment: MOCK # <--- REMOVE THIS LINE!
-
     steps:
       - name: Checkout repository code
         uses: actions/checkout@v4
@@ -27,7 +20,6 @@ jobs:
       - name: Configure AWS credentials (using OIDC role)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # These are now correctly pulled from Repository Secrets
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
@@ -45,7 +37,6 @@ jobs:
       - name: Deploy to EC2 Instance via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
-          # These are now correctly pulled from Repository Secrets
           host: ${{ secrets.EC2_INSTANCE_PUBLIC_IP }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
