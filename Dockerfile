@@ -1,15 +1,22 @@
-FROM golang:1.24.6-alpine AS builder
+# Build stage
+FROM golang:1.24.6 AS builder
 
 WORKDIR /app
 COPY go.mod go.sum ./
-# RUN apk add git
-RUN GO111MODULE=on GOPROXY=https://goproxy.cn,direct go mod download
+RUN go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o stackguard-task cmd/server/main.go
 
-FROM alpine:latest AS runner
-RUN apk --no-cache add ca-certificates tzdata
+# Runtime stage
+FROM debian:bookworm-slim AS runner
+
+# Install required runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    tzdata \
+ && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /root/
 
 COPY --from=builder /app/stackguard-task .
