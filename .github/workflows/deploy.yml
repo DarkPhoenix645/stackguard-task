@@ -13,7 +13,12 @@ jobs:
       id-token: write
       contents: read
 
-    environment: MOCK
+    # ====================================================================
+    # THE FIX: Remove the 'environment: MOCK' line.
+    # All secrets and variables are now repository-level.
+    # This also resolves the OIDC trust policy mismatch you observed.
+    # ====================================================================
+    # environment: MOCK # <--- REMOVE THIS LINE!
 
     steps:
       - name: Checkout repository code
@@ -22,6 +27,7 @@ jobs:
       - name: Configure AWS credentials (using OIDC role)
         uses: aws-actions/configure-aws-credentials@v4
         with:
+          # These are now correctly pulled from Repository Secrets
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
@@ -31,7 +37,7 @@ jobs:
 
       - name: Build, tag, and push Docker image to Amazon ECR
         run: |
-          # These values are now pulled directly from the MOCK environment's secrets
+          # These are now correctly pulled from Repository Secrets
           docker build -t "${{ secrets.ECR_REPOSITORY }}" .
           docker tag "${{ secrets.ECR_REPOSITORY }}":latest "${{ secrets.ECR_URI }}":latest
           docker push "${{ secrets.ECR_URI }}":latest
@@ -39,6 +45,7 @@ jobs:
       - name: Deploy to EC2 Instance via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
+          # These are now correctly pulled from Repository Secrets
           host: ${{ secrets.EC2_INSTANCE_PUBLIC_IP }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
@@ -56,7 +63,7 @@ jobs:
             docker rm stackguard-task || true
 
             # Run a new container from the latest image
-            # This correctly uses `secrets` for secrets and `vars` for variables from your MOCK environment
+            # All app-specific variables/secrets are now referenced from repository-level.
             docker run -d \
               --name stackguard-task \
               -p 8080:8080 \
