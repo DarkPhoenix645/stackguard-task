@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"stackguard-task/internal/models"
 
@@ -62,8 +63,7 @@ func (h *Hub) Run() {
 
 		case message := <-h.broadcast:
 			for client := range h.clients {
-				err := client.WriteMessage(websocket.TextMessage, message)
-				if err != nil {
+				if err := writeWithRetry(client, message); err != nil {
 					log.Printf("WebSocket write error: %v", err)
 					delete(h.clients, client)
 					client.Close()
@@ -72,8 +72,7 @@ func (h *Hub) Run() {
 
 		case message := <-h.alertBroadcast:
 			for client := range h.alertClients {
-				err := client.WriteMessage(websocket.TextMessage, message)
-				if err != nil {
+				if err := writeWithRetry(client, message); err != nil {
 					log.Printf("Alert WebSocket write error: %v", err)
 					delete(h.alertClients, client)
 					client.Close()
@@ -193,4 +192,22 @@ func (h *Hub) UpgradeHandler() fiber.Handler {
 		log.Printf("WebSocket upgrade failed - missing required headers")
 		return c.Status(http.StatusUpgradeRequired).SendString("WebSocket upgrade required")
 	}
+}
+
+// writeWithRetry attempts to write a websocket message with small retries for transient errors.
+func writeWithRetry(c *websocket.Conn, message []byte) error {
+    const attempts = 3
+    backoff := 50 * time.Millisecond
+    for i := 0; i < attempts; i++ {
+        if err := c.WriteMessage(websocket.TextMessage, message); err != nil {
+            if i == attempts-1 {
+                return err
+            }
+            time.Sleep(backoff)
+            backoff *= 2
+            continue
+        }
+        return nil
+    }
+    return nil
 }

@@ -37,48 +37,65 @@ func (s *SecretScanner) ScanMessage(msg models.TeamsMessage) []models.SecretDete
     // Preprocess content to handle newlines and special characters
     content = s.preprocessContent(content)
     
-    // TODO: Handle large messages (>5000 chars)
+    // Handle large messages (>5000 chars) by scanning in overlapping chunks
     originalContent := content
-    if len(content) > 5000 {
-        content = content[:5000]
-    }
-    
     confidenceCalc := NewConfidenceCalculator()
-    
-    for _, pattern := range s.patterns {
-        matches := pattern.Pattern.FindAllString(content, -1)
-        
-        for _, match := range matches {
-            if s.isFalsePositive(match, originalContent) {
-                continue
+
+    // Chunking parameters chosen to balance speed and boundary accuracy
+    const maxScanWindow = 5000
+    const chunkSize = 4096
+    const overlap = 512 // Make sure secrets spread across chunks are caught
+
+    scanChunk := func(chunk string) {
+        for _, pattern := range s.patterns {
+            matches := pattern.Pattern.FindAllString(chunk, -1)
+            for _, match := range matches {
+                context := extractContext(originalContent, match)
+                if s.isFalsePositive(match, context, pattern.Name) {
+                    continue
+                }
+                confidence := confidenceCalc.CalculateConfidence(match, context, pattern.Name)
+                if confidence < 0.3 {
+                    continue
+                }
+                detection := models.SecretDetection{
+                    ID:          generateDetectionID(msg.ID, match),
+                    MessageID:   msg.ID,
+                    ChannelID:   msg.ChannelID,
+                    TeamID:      msg.TeamID,
+                    UserID:      msg.From.User.ID,
+                    UserName:    msg.From.User.DisplayName,
+                    SecretType:  pattern.Name,
+                    MaskedValue: maskSecret(match),
+                    FullValue:   match,
+                    Confidence:  confidence,
+                    Context:     context,
+                    DetectedAt:  time.Now(),
+                    Severity:    pattern.Severity,
+                    Status:      "new",
+                }
+                detections = append(detections, detection)
             }
-            
-            context := extractContext(originalContent, match)
-            confidence := confidenceCalc.CalculateConfidence(match, context, pattern.Name)
-            
-            // Apply lower bound for confidence
-            if confidence < 0.3 {
-                continue
+        }
+    }
+
+    if len(content) <= maxScanWindow {
+        scanChunk(content)
+    } else {
+        // Sliding window with overlap
+        step := chunkSize - overlap
+        if step <= 0 {
+            step = chunkSize
+        }
+        for start := 0; start < len(content); start += step {
+            end := start + chunkSize
+            if end > len(content) {
+                end = len(content)
             }
-            
-            detection := models.SecretDetection{
-                ID:          generateDetectionID(msg.ID, match),
-                MessageID:   msg.ID,
-                ChannelID:   msg.ChannelID,
-                TeamID:      msg.TeamID,
-                UserID:      msg.From.User.ID,
-                UserName:    msg.From.User.DisplayName,
-                SecretType:  pattern.Name,
-                MaskedValue: maskSecret(match),
-                FullValue:   match,
-                Confidence:  confidence,
-                Context:     context,
-                DetectedAt:  time.Now(),
-                Severity:    pattern.Severity,
-                Status:      "new",
+            scanChunk(content[start:end])
+            if end == len(content) {
+                break
             }
-            
-            detections = append(detections, detection)
         }
     }
     
@@ -179,8 +196,8 @@ func (s *SecretScanner) detectionsOverlap(d1, d2 models.SecretDetection) bool {
     return false
 }
 
-func (s *SecretScanner) isFalsePositive(match, content string) bool {
-    lowerContent := strings.ToLower(content)
+func (s *SecretScanner) isFalsePositive(match, context, secretType string) bool {
+    lowerContext := strings.ToLower(context)
     lowerMatch := strings.ToLower(match)
     
     // Common false positive patterns
@@ -191,8 +208,18 @@ func (s *SecretScanner) isFalsePositive(match, content string) bool {
         "replace-with", "insert-your", "add-your",
     }
     
+    // Highly specific secret types should be harder to reject as false positives
+    isHighlySpecific := secretType == "Private Key" || secretType == "GitHub Token" || secretType == "AWS Access Key" || secretType == "Google API Key"
+
     for _, fp := range falsePositives {
-        if strings.Contains(lowerContent, fp) || strings.Contains(lowerMatch, fp) {
+        if strings.Contains(lowerMatch, fp) {
+            return true
+        }
+        if strings.Contains(lowerContext, fp) {
+            if isHighlySpecific {
+                // Do not auto-reject highly specific matches just due to nearby context
+                continue
+            }
             return true
         }
     }

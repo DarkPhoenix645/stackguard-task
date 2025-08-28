@@ -1,0 +1,65 @@
+[
+  {
+    "description": "False Positive: Example AWS Key in documentation",
+    "request_body": {
+      "text": "This is an example AWS Access Key ID: AKIAIOSFODNN7EXAMPLE - please replace it. This is for documentation purposes only and not a live credential.",
+      "channelId": "documentation",
+      "userName": "System"
+    },
+    "expected_detections": []
+  },
+  {
+    "description": "False Positive: Test Secret Key for local development",
+    "request_body": {
+      "text": "Using a TEST_SECRET_KEY for local development: abcdefghijklmnopqrstuvwxyz1234567890ABCDEF. This is just a placeholder.",
+      "channelId": "dev-local",
+      "userName": "Dev"
+    },
+    "expected_detections": []
+  },
+  {
+    "description": "False Positive: Placeholder JWT structure",
+    "request_body": {
+      "text": "The JWT token will look like this structure: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.PLACEHOLDER_PAYLOAD.PLACEHOLDER_SIGNATURE. Do not use this actual string.",
+      "channelId": "docs-api",
+      "userName": "Admin"
+    },
+    "expected_detections": []
+  },
+  {
+    "description": "False Positive: Common short alphanumeric string",
+    "request_body": {
+      "text": "The message was just: Abcdefghijklmnopqrstuvwxyz1234567890abcd. It does not contain any sensitive information.",
+      "channelId": "chat-general",
+      "userName": "User1"
+    },
+    "expected_detections": []
+  },
+  {
+    "description": "False Positive: UUID (looks similar to generic key but is not)",
+    "request_body": {
+      "text": "Here's the new record ID: f47ac10b-58cc-4372-a567-0e02b2c3d479 for the new record. This is a standard unique identifier.",
+      "channelId": "logs",
+      "userName": "SystemLog"
+    },
+    "expected_detections": []
+  },
+  {
+    "description": "False Positive: Database connection string in a comment/todo",
+    "request_body": {
+      "text": "// TODO: Update the database connection string here after approval: postgres://user:pass@host:5432/db_name - this is commented out code.",
+      "channelId": "code-review",
+      "userName": "Reviewer"
+    },
+    "expected_detections": []
+  },
+  {
+    "description": "Long message without any secrets",
+    "request_body": {
+      "text": "This is a very long message designed to test the `text` field handling for inputs exceeding 5000 characters. It will contain repetitive filler text, which would typically be ignored, but it should NOT contain any secrets or secret-like patterns. The purpose is to ensure that the scanner can efficiently process large messages and correctly determine the absence of sensitive information. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat. End of the very long, but safe, message.",
+      "channelId": "general",
+      "userName": "LongTalker"
+    },
+    "expected_detections": []
+  }
+]

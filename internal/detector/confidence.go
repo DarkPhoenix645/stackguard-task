@@ -293,9 +293,13 @@ func (cc *ConfidenceCalculator) applyFalsePositivePenalties(secret, context stri
     }
     
     for _, pattern := range falsePositivePatterns {
-        if strings.Contains(lowerSecret, pattern) || strings.Contains(lowerContext, pattern) {
-            confidence *= 0.1 // Severe penalty
+        if strings.Contains(lowerSecret, pattern) {
+            confidence *= 0.1 // Severe penalty if pattern is in the secret itself
             break
+        }
+        if strings.Contains(lowerContext, pattern) {
+            confidence *= 0.6 // Mild penalty if pattern only appears in nearby context
+            // Accumulates mild penalties for multiple patterns by not breaking here
         }
     }
     
