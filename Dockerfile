@@ -21,7 +21,6 @@ WORKDIR /root/
 
 COPY --from=builder /app/stackguard-task .
 COPY --from=builder /app/web ./web
-COPY --from=builder /app/.env .
 
 EXPOSE 8080
 
