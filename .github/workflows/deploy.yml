@@ -78,7 +78,7 @@ jobs:
               -e MONITORING_INTERVAL="${{ vars.MONITORING_INTERVAL }}" \
               -e MOCK_MODE="${{ vars.MOCK_MODE }}" \
               -e LOG_LEVEL="${{ vars.LOG_LEVEL }}" \
-              "${{ env.ECR_URI }}":latest
+              "${{ env.ECR_URI }}/stackguard-task":latest
 
             # Clean up old Docker images to save space
             docker image prune -f
