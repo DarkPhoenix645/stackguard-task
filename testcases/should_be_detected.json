@@ -2,7 +2,7 @@
   {
     "description": "AWS Access Key and Secret Key",
     "request_body": {
-      "text": "My AWS credentials are: AKIAIOSFODNN7EXAMPLE and secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY. Please keep them safe.",
+      "text": "My AWS credentials are: AKIAIOSFODNN7WS231KJ and secret: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY. Please keep them safe.",
       "channelId": "prod-secrets",
       "userName": "Alice"
     },
