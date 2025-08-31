@@ -1,4 +1,4 @@
-# Teams Security Connector
+# Teams Security Connector (Golang)
 
 This is Nilanjan Mitra's submission for the StackGuard Intern Assignment.
 A Golang-based Microsoft Teams security connector that scans messages for secrets in real-time, masks sensitive values, emits alerts, and provides a lightweight dashboard.
